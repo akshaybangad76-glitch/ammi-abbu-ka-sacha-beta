@@ -693,16 +693,13 @@ test('Pay Now does not approve a delayed bill from a different account', async (
 });
 
 
-test('Diya shortcut opens Swiggy without claiming an unverified reward', async () => {
+test('Tools does not send users out to an unverified Diya claim page', async () => {
   const app = harness();
   try {
     await waitFor(() => app.document.querySelector('.ac-row.active'), 'accounts');
     nav(app, 'tools');
-    const card = await waitFor(() => app.document.querySelector('.diya-offer'), 'Diya card');
-    const link = card.querySelector('a');
-    assert.equal(link.href, 'https://r.swiggy.com/light-diya/yviTo3');
-    assert.match(card.textContent, /Swiggy hi confirm/);
-    assert.doesNotMatch(card.textContent, /claim successful|₹300|15\/15/i);
-    assert.equal(app.calls.some(c => c.url.includes('/offers/claim')), false);
+    await waitFor(() => app.document.querySelector('#content h1'), 'tools');
+    assert.equal(app.document.querySelector('a[href*="light-diya"]'), null);
+    assert.doesNotMatch(app.document.querySelector('#content').textContent, /claim successful|15\/15/i);
   } finally { app.close(); }
 });
