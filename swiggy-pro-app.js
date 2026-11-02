@@ -1168,7 +1168,10 @@
   }
   function renderTools() {
     const access = renderAccountAccess();
-    if (!state.accounts.length) return `${head('A LITTLE EXTRA', 'Offers & tools', '')}${access}${empty('tools', 'No account yet', 'Add an account first.')}`;
+    // The public campaign link opens Swiggy itself. No unverified claim or
+    // balance is inferred from opening the page.
+    const diya = `<div class="card diya-offer"><div class="card-title">${icon('spark')} Light a Diya</div><p class="hint">Swiggy par offer aur eligibility check karein. Claim aur Food / Instamart credit Swiggy hi confirm karega.</p><a class="button outline block" href="https://r.swiggy.com/light-diya/yviTo3" target="_blank" rel="noopener noreferrer">Open in Swiggy</a></div>`;
+    if (!state.accounts.length) return `${head('A LITTLE EXTRA', 'Offers & tools', '')}${access}${diya}${empty('tools', 'No account yet', 'Add an account first.')}`;
     const accounts = state.accounts.map(a => {
       const claimButton = a.canClaim !== false
         ? `<button class="button ${a.active ? 'green' : 'outline'} block" type="button" data-action="claim-offers" data-key="${esc(a.key)}" ${state.claimBusyKey === a.key || a.status === 'SESSION_EXPIRED' ? 'disabled' : ''}>${state.claimBusyKey === a.key ? 'Claiming…' : 'Claim'}</button>`
@@ -1178,7 +1181,7 @@
     const result = state.claimResult ? `<div class="card"><div class="card-title">${icon('check')} Claim</div>${offerRows(state.claimResult.tracks)}</div>` : '';
     // Diagnostics/backup functions remain available to the backend; these cards
     // are deliberately not mounted in the customer-facing Tools screen.
-    return `${head('A LITTLE EXTRA', 'Offers & tools', '')}${access}${result}${accounts}`;
+    return `${head('A LITTLE EXTRA', 'Offers & tools', '')}${access}${diya}${result}${accounts}`;
   }
   function renderConnection() {
     if (!initData) return `${head('TELEGRAM MINI APP', 'Open in Telegram', 'Your private account space needs a Telegram session.')}<div class="card connection-card"><strong>Browser preview only</strong><p>Open this app from your bot using Open App or /pro. No account data is shown here.</p></div>`;
