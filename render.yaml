@@ -1,5 +1,5 @@
 services:
-  - type: worker
+  - type: web
     name: ammi-abbu-ka-sacha-beta
     runtime: docker
     plan: starter
@@ -7,29 +7,34 @@ services:
     branch: main
     autoDeploy: true
     dockerfilePath: ./Dockerfile
-    buildCommand: npm install
-    startCommand: npm start
+    healthCheckPath: /
+
     envVars:
       - key: NODE_ENV
         value: production
       - key: BOT_TOKEN
         sync: false
       - key: BOSS_ID
-        value: "6484999726"
+        sync: false
       - key: BOSS_SECRET
         sync: false
+      - key: PRO_MINIAPP_URL
+        sync: false
+      - key: PRO_VAULT_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /app/data
+      - key: PRO_ENABLE_CHECKOUT
+        value: "0"
+      - key: SWIGGY_BLOCK_LIVE_ORDER_PLACE
+        value: "1"
       - key: SIMPLE_CHAT_MODE
         value: "1"
-      - key: GITHUB_REPO_SLUG
-        value: "hulm0408/ammi-abbu-ka-sacha-beta"
-      - key: GITHUB_VAULT_TOKEN
-        sync: false
-      - key: VAULT_ENCRYPTION_KEY
-        sync: false
       - key: HEADLESS
         value: "true"
       - key: PUPPETEER_EXECUTABLE_PATH
         value: "/usr/bin/chromium"
+
     disk:
       name: data
       mountPath: /app/data
