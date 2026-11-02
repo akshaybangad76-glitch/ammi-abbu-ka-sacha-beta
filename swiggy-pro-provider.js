@@ -824,6 +824,12 @@ export const proProvider = {
       const claimEnabled = !(quickBill || fast || cart.skipOfferClaim === true || options.skipOfferClaim === true);
       // Bill ko sirf Night + Breakfast free cash chahiye. Fixed/event ladders
       // yahan nahi chalate — woh Tools/Claim ka kaam hai. Isse bill fast hai.
+      // Restaurant offers do not depend on the mutable cart. Fetch them while
+      // the claim and initial cart work are in flight, without parallel writes.
+      const discoverOffers = !quickBill && !fast && (autoCoupon || Boolean(requestedCoupon));
+      const restaurantOffersPromise = discoverOffers
+        ? dapiFetch(account, `offers/restaurant?lat=${lat}&lng=${lng}&restaurantId=${cart.restaurantId}`, { lat, lng, timeoutMs: 1600 }).catch(() => null)
+        : Promise.resolve(null);
       const claimPromise = claimEnabled ? activateAllEventOffers(account, {
         offerKeys: ['lateNight', 'breakfast'],
         requestTimeoutMs: 1500,
@@ -852,6 +858,12 @@ export const proProvider = {
         return { key, label: key === 'lateNight' ? 'Night' : 'Breakfast', status: String(rec?.status || ''), verified: rec?.verified === true, alreadyActive: rec?.alreadyActive === true };
       });
       let base = await push({ couponCode: requestedCoupon, subscriptionItems });
+      // Payment offers only need the initial item total; One Lite trials do
+      // not change item prices. Keep all cart updates strictly sequential.
+      const estCartVal = Math.round(Number(base.parsed?.itemTotal || 250));
+      const paymentOffersPromise = discoverOffers
+        ? dapiFetch(account, `offers/payment?lat=${lat}&lng=${lng}&restaurantId=${cart.restaurantId}&cart_value=${estCartVal}&restaurant_id=${cart.restaurantId}&sourcePage=cart&source_page=cart&page_type=PAYMENT_OFFERS_PAGE`, { lat, lng, timeoutMs: 1800 }).catch(() => null)
+        : Promise.resolve(null);
       const deliveryFee = Number(base.parsed?.deliveryFee || 0);
       if (!quickBill && !fast && cart.autoOneLite !== false && deliveryFee > 1 && Number(base.parsed?.swiggyOneMembershipFee || 0) === 0) {
         const planIds = [...new Set([
@@ -906,12 +918,11 @@ export const proProvider = {
       if (base.coupon) add(base.coupon, base.coupon, 'Bill me laga hua', 2);
       if (base.parsed?.suggestedCouponCode) add(base.parsed.suggestedCouponCode, base.parsed.suggestedCouponCode, 'Swiggy ka best suggested', 3);
 
-      const estCartVal = Math.round(Number(base.parsed?.itemTotal || 250));
       const [mcpCoupons, mcpCart, offersPay, offersRest] = (quickBill || fast || (!autoCoupon && !requestedCoupon)) ? [null, null, null, null] : await Promise.all([
         callSwiggyFoodMcpTool(account, 'fetch_food_coupons', { restaurantId: String(cart.restaurantId), addressId }, 1800).catch(() => null),
         callSwiggyFoodMcpTool(account, 'get_food_cart', { addressId }, 1600).catch(() => null),
-        dapiFetch(account, `offers/payment?lat=${lat}&lng=${lng}&restaurantId=${cart.restaurantId}&cart_value=${estCartVal}&restaurant_id=${cart.restaurantId}&sourcePage=cart&source_page=cart&page_type=PAYMENT_OFFERS_PAGE`, { lat, lng, timeoutMs: 1800 }).catch(() => null),
-        dapiFetch(account, `offers/restaurant?lat=${lat}&lng=${lng}&restaurantId=${cart.restaurantId}`, { lat, lng, timeoutMs: 1600 }).catch(() => null)
+        paymentOffersPromise,
+        restaurantOffersPromise
       ]);
       const ineligible = new Set();
       for (const cp of (Array.isArray(mcpCoupons?.structured?.coupons) ? mcpCoupons.structured.coupons : [])) {

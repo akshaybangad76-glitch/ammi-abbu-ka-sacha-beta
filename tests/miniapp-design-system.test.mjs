@@ -691,3 +691,15 @@ test('Pay Now does not approve a delayed bill from a different account', async (
     nav(app, 'cart'); assert.equal(app.document.querySelector('.bill-card'), null);
   } finally { app.close(); }
 });
+
+
+test('Tools does not send users out to an unverified Diya claim page', async () => {
+  const app = harness();
+  try {
+    await waitFor(() => app.document.querySelector('.ac-row.active'), 'accounts');
+    nav(app, 'tools');
+    await waitFor(() => app.document.querySelector('#content h1'), 'tools');
+    assert.equal(app.document.querySelector('a[href*="light-diya"]'), null);
+    assert.doesNotMatch(app.document.querySelector('#content').textContent, /claim successful|15\/15/i);
+  } finally { app.close(); }
+});

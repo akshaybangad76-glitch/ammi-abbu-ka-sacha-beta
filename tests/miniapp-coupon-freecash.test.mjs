@@ -25,8 +25,8 @@ const baseCart = () => ({
   items: [{ menu_item_id: 9001, qty: 1, name: 'Biryani', price: 230, variants: [], addons: [] }],
   quote: null
 });
-const state = { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [] };
-function reset() { Object.assign(state, { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [] }); }
+const state = { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [], requests: [] };
+function reset() { Object.assign(state, { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [], requests: [] }); }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 function cartPayload() {
   const discount = state.coupon === 'SAVE50' ? 50 : state.coupon === 'BEST80' ? 80 : 0;
@@ -45,6 +45,7 @@ function cartPayload() {
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (raw, options = {}) => {
   const u = String(raw);
+  state.requests.push(u);
   if (u.includes('mcp.swiggy.com') || u.includes('/dapi/offers/')) { state.discoveryCalls++; return json({ statusCode: 0, data: { offers: [] }, result: { structuredContent: { coupons: state.coupons } } }); }
   if (u.includes('/dapi/')) return json({ statusCode: 0, tid: jwt, data: { addresses: [address] } });
   if (u.includes('events.swiggy.com')) return new Response('<html></html>', { status: 200 });
@@ -135,4 +136,17 @@ test('checkout bar contains just a full-width Pay Now button', () => {
   const bar = app.match(/const payBar = `([^\n]+)/)[1];
   assert.match(bar, /Pay Now/);
   assert.doesNotMatch(bar, /pay-left|playLoader/);
+});
+
+
+test('offer reads overlap safely with bill work; cart writes stay ordered', async () => {
+  reset();
+  await proProvider.quoteCart(account, address, { ...baseCart(), autoCoupon: true }, '', { phase: 'full', autoCoupon: true });
+  const requests = state.requests;
+  const restaurant = requests.findIndex(u => u.includes('/dapi/offers/restaurant'));
+  const payment = requests.findIndex(u => u.includes('/dapi/offers/payment'));
+  const cartUpdate = requests.findIndex(u => u.includes('/api/v2/cart/client/update'));
+  const mcp = requests.findIndex(u => u.includes('mcp.swiggy.com'));
+  assert.ok(restaurant >= 0 && cartUpdate >= 0 && restaurant < cartUpdate, 'restaurant offer read starts before cart update');
+  assert.ok(payment >= 0 && mcp >= 0 && payment < mcp, 'payment offer read starts before cart-dependent discovery');
 });
