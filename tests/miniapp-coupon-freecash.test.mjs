@@ -25,11 +25,11 @@ const baseCart = () => ({
   items: [{ menu_item_id: 9001, qty: 1, name: 'Biryani', price: 230, variants: [], addons: [] }],
   quote: null
 });
-const state = { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0 };
-function reset() { Object.assign(state, { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0 }); }
+const state = { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [] };
+function reset() { Object.assign(state, { coupon: '', trade: 0, reward: 0, bulkHonorsCoupon: true, bulkHonorsRemove: true, applyCalls: 0, removeCalls: 0, discoveryCalls: 0, wallet: 0, coupons: [] }); }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 function cartPayload() {
-  const discount = state.coupon === 'SAVE50' ? 50 : 0;
+  const discount = state.coupon === 'SAVE50' ? 50 : state.coupon === 'BEST80' ? 80 : 0;
   const total = 270 - discount - state.trade;
   return { statusCode: 0, data: { cartMeta: {
     address_id: 'addr-1', cartId: 'cart-1', order_total: total, item_total: 230,
@@ -38,14 +38,14 @@ function cartPayload() {
     coupon_code: state.coupon, is_coupon_valid: state.coupon ? 1 : 0,
     coupon_discount_total: discount, coupon_discount_effective: discount,
     trade_discount_total: state.trade, trade_discount_reward_amount: state.reward,
-    user_swiggy_money: 0, swiggy_money: 0, positiveDeliveryChargesExclusive: 0,
+    user_swiggy_money: state.wallet, swiggy_money: 0, positiveDeliveryChargesExclusive: 0,
     taxesAndCharges: 30, total_packing_charges: 10, is_order_for_someone_else: false
   } } };
 }
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (raw, options = {}) => {
   const u = String(raw);
-  if (u.includes('mcp.swiggy.com') || u.includes('/dapi/offers/')) { state.discoveryCalls++; return json({ statusCode: 0, data: { offers: [] }, result: { structuredContent: { coupons: [] } } }); }
+  if (u.includes('mcp.swiggy.com') || u.includes('/dapi/offers/')) { state.discoveryCalls++; return json({ statusCode: 0, data: { offers: [] }, result: { structuredContent: { coupons: state.coupons } } }); }
   if (u.includes('/dapi/')) return json({ statusCode: 0, tid: jwt, data: { addresses: [address] } });
   if (u.includes('events.swiggy.com')) return new Response('<html></html>', { status: 200 });
   if (u.includes('/api/v2/cart/client')) {
@@ -111,4 +111,28 @@ test('UI: bill/coupon loading uses curved circular loader and Pay Now has no das
   assert.equal(/idle-chip/.test(app), false);
   assert.equal(/bill-paper/.test(app), false);
   assert.match(app, /coupon-code/);
+});
+
+
+test('auto coupon search finds a better later live coupon and keeps wallet split in the bill', async () => {
+  reset(); state.wallet = 25;
+  state.coupons = [...Array.from({length: 7}, (_, i) => ({ coupon_code: `CODE${i}`, is_applicable: true })), { coupon_code: 'BEST80', is_applicable: true }];
+  const out = await proProvider.quoteCart(account, address, { ...baseCart(), autoCoupon: true }, '', { phase: 'full', autoCoupon: true });
+  assert.equal(out.bill.couponCode, 'BEST80');
+  assert.equal(out.bill.freeCash, 25);
+  assert.equal(out.bill.total, 165);
+});
+
+test('wallet covering the entire bill never produces a fabricated positive payable', async () => {
+  reset(); state.wallet = 300;
+  const parsed = parseDapiCartPayload(cartPayload().data);
+  assert.equal(parsed.finalPayable, 0);
+  await assert.rejects(proProvider.quoteCart(account, address, baseCart(), '', { phase: 'full', autoCoupon: false }), /Zero-amount payment/);
+});
+
+test('checkout bar contains just a full-width Pay Now button', () => {
+  const app = fs.readFileSync(new URL('../swiggy-pro-app.js', import.meta.url), 'utf8');
+  const bar = app.match(/const payBar = `([^\n]+)/)[1];
+  assert.match(bar, /Pay Now/);
+  assert.doesNotMatch(bar, /pay-left|playLoader/);
 });

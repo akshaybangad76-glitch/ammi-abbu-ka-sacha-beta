@@ -3863,7 +3863,7 @@ export function parseDapiCartPayload(data) {
     rawCartOrderTotal: Math.round(rawOrderTotal * 100) / 100,
     packingCharges: Math.round(packingCharges * 100) / 100,
     taxesAndCharges: Math.round(taxesAndCharges * 100) / 100,
-    finalPayable: Math.round((orderTotal > 0 ? orderTotal : Math.max(0, itemTotal - couponDiscount - tradeDiscountTotal + swiggyOneMembershipFee + deliveryFee + taxesAndCharges)) * 100) / 100,
+    finalPayable: Math.round(((cm.order_total != null || renderGrandTotal != null) ? orderTotal : Math.max(0, itemTotal - couponDiscount - tradeDiscountTotal + swiggyOneMembershipFee + deliveryFee + taxesAndCharges)) * 100) / 100,
     totalSavings
   };
 }

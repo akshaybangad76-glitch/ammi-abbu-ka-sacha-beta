@@ -1628,3 +1628,7 @@ body.is-loading { cursor: progress; }
   .play-loader-arc { stroke-dasharray: 88 38; }
 }
 .ac-filter { min-height: 44px; }
+
+/* Checkout bar contains only the full-width payment action. */
+.pay-bar { grid-template-columns: minmax(0, 1fr); }
+.pay-bar .pay-now { grid-column: 1; width: 100%; }
