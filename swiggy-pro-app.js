@@ -989,8 +989,7 @@
     const saved = savedAmount(q);
     const savingsBanner = saved > 0 ? `<div class="savings-banner">${icon('spark')} ${money(saved)} saved!${q?.coupon ? ` · ${esc(q.coupon)}` : ''}</div>` : '';
     const eta = `<div class="eta-strip"><span class="eta-clock">${icon('orders')}</span><span class="eta-copy"><strong>${cart.restaurantTime ? `Delivery in ${esc(cart.restaurantTime)}` : 'Delivery time Swiggy se aayega'}</strong><small>${esc([cart.restaurantName, cart.restaurantArea].filter(Boolean).join(' · '))}</small></span></div>`;
-    const billReady = Boolean(q && Number.isFinite(Number(q.total)));
-    const payBar = `<div class="pay-bar"><button class="button green pay-now" type="button" data-action="checkout-start" ${locked || !state.checkoutEnabled ? 'disabled' : ''} ${!state.checkoutEnabled ? `title="${esc(state.checkoutBlockReason || '')}"` : ''}>${state.checkoutEnabled ? `Pay Now ${icon('arrow')}` : 'Payment band'}</button><div class="pay-left">${billReady ? `<strong aria-label="Bill amount">${money(q.total)}</strong>` : playLoader('Bill amount load ho raha hai', 'small')}</div></div>${state.checkoutEnabled ? '' : `<div class="warning pay-blocked">Payment abhi band hai — ${esc(state.checkoutBlockReason || 'server ne reason nahi diya')}</div>`}`;
+    const payBar = `<div class="pay-bar"><button class="button green pay-now" type="button" data-action="checkout-start" ${locked || !state.checkoutEnabled ? 'disabled' : ''} ${!state.checkoutEnabled ? `title="${esc(state.checkoutBlockReason || '')}"` : ''}>${state.checkoutEnabled ? 'Pay Now' : 'Payment band'}</button></div>${state.checkoutEnabled ? '' : `<div class="warning pay-blocked">Payment abhi band hai — ${esc(state.checkoutBlockReason || 'server ne reason nahi diya')}</div>`}`;
     return `${head('CHECKOUT', 'Checkout', '')}${lockedNotice}${state.checkout ? renderCheckout() : ''}${eta}${savingsBanner}${delivery}<div class="line-heading">${icon('cart')} Your Order <span class="pill right">${quantity} item${quantity === 1 ? '' : 's'}${q ? ' · ' + money(q.total) : ''}</span></div>${restaurantCard}${renderMealRail(cart)}${groupCard}${renderSavingsCorner(q)}${renderBill(q)}${renderBillLoading(q, cart)}${state.checkoutWarning ? `<div class="warning" role="alert">${esc(state.checkoutWarning)}</div>` : ''}${payBar}`;
   }
   /**
@@ -2322,7 +2321,7 @@
         if (!await confirmWithTrigger({ title: 'Fresh bill check?', message: 'Swiggy par cart dobara sync hoga aur naya bill aayega.', confirmText: 'Check bill' })) return;
         if (signature !== billSyncSignature()) throw new Error('Cart or account changed. Review the bill again.');
         // Bill refresh = poora hisaab ek saath (offers + One Lite + coupon).
-        const out = await api('cart/sync', 'POST', { confirmReplaceSwiggyCart: true, forSomeoneElse: state.cart?.forSomeoneElse === true, coupon: String(state.cart?.quote?.couponCode || state.cart?.quote?.coupon || ''), autoCoupon: true, phase: 'full' });
+        const out = await api('cart/sync', 'POST', { confirmReplaceSwiggyCart: true, forSomeoneElse: state.cart?.forSomeoneElse === true, coupon: state.cart?.quote?.autoCoupon ? '' : String(state.cart?.quote?.couponCode || state.cart?.quote?.coupon || ''), autoCoupon: true, phase: 'full' });
         if (signature !== billSyncSignature()) return;
         merge(out); render(); toast('Bill update ho gaya.');
       }
@@ -2372,7 +2371,7 @@
           const syncSignature = billSyncSignature();
           if (!await confirmWithTrigger({ title: 'Swiggy cart sync karein?', message: 'Selected ID ka existing Swiggy cart replace hoga aur address save hoga.', confirmText: 'Sync cart' })) return;
           if (syncSignature !== billSyncSignature()) throw new Error('Cart or account changed. Review it again.');
-          const synced = await api('cart/sync', 'POST', { confirmReplaceSwiggyCart: true, forSomeoneElse: state.cart?.forSomeoneElse === true, coupon: String(state.cart?.quote?.couponCode || state.cart?.quote?.coupon || ''), autoCoupon: true, phase: 'full' });
+          const synced = await api('cart/sync', 'POST', { confirmReplaceSwiggyCart: true, forSomeoneElse: state.cart?.forSomeoneElse === true, coupon: state.cart?.quote?.autoCoupon ? '' : String(state.cart?.quote?.couponCode || state.cart?.quote?.coupon || ''), autoCoupon: true, phase: 'full' });
           if (syncSignature !== billSyncSignature()) throw new Error('Cart or account changed. Review it again.');
           merge(synced); quote = state.cart?.quote; render();
           if (!quote) throw new Error('Swiggy ne bill nahi diya. Dobara Pay Now dabayein.');

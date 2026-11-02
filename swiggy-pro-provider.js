@@ -685,8 +685,8 @@ export const proProvider = {
     const quickBill = cart.quickBill === true && !requestedCoupon;
     const budget = {
       // Boss ko speed chahiye par offers bhi — dono: discovery 2.5s, trials 9s.
-      trialBudgetMs: Math.max(2_000, Math.min(Number(process.env.PRO_COUPON_BUDGET_MS) || 7_000, 15_000)),
-      maxTrials: Math.max(1, Math.min(Number(process.env.PRO_COUPON_TRIALS) || 6, 10))
+      trialBudgetMs: Math.max(2_000, Math.min(Number(process.env.PRO_COUPON_BUDGET_MS) || 45_000, 120_000)),
+      maxTrials: Math.max(1, Math.min(Number(process.env.PRO_COUPON_TRIALS) || 24, 50))
     };
     return withSwiggyAccountLock(checkoutLockKey(account), async () => {
       // ── Round 34 (boss): "MAKE THE CHECK OUT FASTER" ──────────────────────
@@ -748,6 +748,7 @@ export const proProvider = {
         }
         const rawCartTotal = Number(meta.order_total);
         const total = Number(parsed.finalPayable ?? meta.order_total);
+        if (total === 0 && rawCartTotal > 0) throw unavailable('Free Cash se poora bill cover ho raha hai. Zero-amount payment yahan supported nahi hai; Swiggy app me checkout karein.');
         if (exactPaise(rawCartTotal) === null || rawCartTotal <= 0 || exactPaise(total) === null || total <= 0) {
           throw unavailable('Swiggy did not return a valid payable amount.');
         }
@@ -802,7 +803,7 @@ export const proProvider = {
           } else {
             snapshot = await readCart(4000);
           }
-          if (code && !couponSettled(snapshot, code) && code === requestedCoupon) {
+          if (code && !couponSettled(snapshot, code)) {
             const mcp = await callSwiggyFoodMcpTool(account, 'apply_food_coupon', { couponCode: code, addressId }, 2000).catch(() => null);
             if (mcp?.ok) snapshot = await readCart(4000);
           }
@@ -969,7 +970,7 @@ export const proProvider = {
           total: attempt.total,
           reason: applied ? '' : (attempt.couponReason || 'Swiggy ne discount nahi diya.')
         });
-        if (attempt.total < best.total - 0.005) best = attempt;
+        if (applied && attempt.total < best.total - 0.005) best = attempt;
       }
 
       // ── Step 4: claim ka sach + free cash bill me aaya ya nahi ───────────
